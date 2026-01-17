@@ -30,8 +30,8 @@ class GaussianHMM:
         #   transition_matrix[i, i + 1] = 
         for i in range(self.n_states - 1):
             # self-loop and next-state transitions
-            self.transition_matrix[i, i] = 0.6
-            self.transition_matrix[i, i + 1] = 0.4
+            self.transition_matrix[i, i] = 0.5
+            self.transition_matrix[i, i + 1] = 0.5
         # last state absorbing
         self.transition_matrix[self.n_states - 1, self.n_states - 1] = 1.0
         # =============TODO: Initialize transition matrix =============
@@ -165,9 +165,9 @@ class GaussianHMM:
         # - Find the best final state
         # - Backtrack using backpointer to recover the best state sequence
         #  =============TODO Backtracking=============
-        final_state = N - 1
-        best_path[-1] = final_state
-        for t in range(T - 1, 0, -1):
-            best_path[t - 1] = backpointer[best_path[t], t]
-        best_score = float(viterbi[final_state, -1])
+        final_state = np.argmax(viterbi[:, -1])
+        best_path[T - 1] = final_state
+        for t in range(T - 2, -1, -1):
+            best_path[t] = backpointer[best_path[t + 1], t + 1]
+        best_score = np.max(viterbi[:, -1])
         return best_path, best_score
