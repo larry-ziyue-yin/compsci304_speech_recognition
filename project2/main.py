@@ -43,15 +43,18 @@ def main():
                        help='Number of HMM states')
     parser.add_argument('--max_iter', type=int, default=20,
                        help='Maximum iterations for training')
-    parser.add_argument('--plot_cm', action='store_true',
+    parser.add_argument('--plot_cm', action='store_true', default=True,
                        help='Plot confusion matrices after evaluation')
-    parser.add_argument('--save_results', action='store_true',
+    parser.add_argument('--save_results', action='store_true', default=True,
                        help='Save evaluation results to JSON')
     parser.add_argument('--results_file', type=str, default='results.json',
                        help='Results JSON output path')
+    parser.add_argument('--results_dir', type=str, default='results',
+                       help='Directory to save results (JSON and plots)')
     args = parser.parse_args()
     
     os.makedirs(args.features_dir, exist_ok=True)
+    os.makedirs(args.results_dir, exist_ok=True)
     
     print("Loading file lists...")
     train_dict, test_dict = load_file_lists(args.train_list, args.test_list)
@@ -123,7 +126,11 @@ def main():
     accuracy_single, cm_single = trainer_single.evaluate(test_data)
     print(f"Recognition Accuracy (Single Gaussian): {accuracy_single:.2f}%")
     if args.plot_cm:
-        plot_confusion_matrix(cm_single, title="Confusion Matrix (Single Gaussian)")
+        plot_confusion_matrix(
+            cm_single,
+            title="Confusion Matrix (Single Gaussian)",
+            save_path=os.path.join(args.results_dir, "confusion_matrix_single.png"),
+        )
     
     
     # GMM HMM (4 mixtures)
@@ -144,7 +151,11 @@ def main():
     accuracy_gmm, cm_gmm = trainer_gmm.evaluate(test_data)
     print(f"Recognition Accuracy (GMM with 4 mixtures): {accuracy_gmm:.2f}%")
     if args.plot_cm:
-        plot_confusion_matrix(cm_gmm, title="Confusion Matrix (GMM, 4 Mixtures)")
+        plot_confusion_matrix(
+            cm_gmm,
+            title="Confusion Matrix (GMM, 4 Mixtures)",
+            save_path=os.path.join(args.results_dir, "confusion_matrix_gmm.png"),
+        )
     
     
 
@@ -188,7 +199,7 @@ def main():
                 "per_digit": per_digit_gmm,
             },
         }
-        save_results(results, filename=args.results_file)
+        save_results(results, filename=os.path.join(args.results_dir, args.results_file))
 
 if __name__ == "__main__":
     main()

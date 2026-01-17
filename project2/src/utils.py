@@ -23,7 +23,7 @@ def split_data(features_dict, n_train=5):
     
     return train_data, test_data
 
-def plot_confusion_matrix(confusion_matrix, title="Confusion Matrix"):
+def plot_confusion_matrix(confusion_matrix, title="Confusion Matrix", save_path=None):
     """
     plot confusion matrix
     """
@@ -47,7 +47,12 @@ def plot_confusion_matrix(confusion_matrix, title="Confusion Matrix"):
                     color="white" if confusion_matrix[i, j] > thresh else "black")
     
     plt.tight_layout()
-    plt.show()
+    if save_path:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=150)
+        plt.close()
+    else:
+        plt.show()
 
 def save_results(results, filename="results.json"):
     """
