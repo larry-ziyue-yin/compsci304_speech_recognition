@@ -32,7 +32,9 @@ class SegmentalKMeansTrainer:
             #   states, _ = hmm.viterbi_decode(features)
             # ============= TODO: Viterbi alignment =============
             for features in features_list:
-                pass
+                states, _ = hmm.viterbi_decode(features)
+                for t, state in enumerate(states):
+                    all_segments[state].append(features[t])
 
             # Re-estimation
             for s in range(hmm.n_states):
@@ -51,7 +53,10 @@ class SegmentalKMeansTrainer:
                 #   cov  = np.diag(np.var(data, axis=0)) + epsilon * I
                 # ============= TODO: Single Gaussian update =============
                 if hmm.n_mixtures == 1:
-                    pass
+                    mean = np.mean(data, axis=0)
+                    var = np.var(data, axis=0)
+                    cov = np.diag(var) + 1e-6 * np.eye(data.shape[1])
+                    hmm.gaussians[s] = [{'mean': mean, 'cov': cov, 'weight': 1.0 / hmm.n_mixtures}]
 
                 else:
                     # ============= TODO: GMM update using KMeans =============
@@ -60,7 +65,52 @@ class SegmentalKMeansTrainer:
                     #   - Estimate mean, covariance, and weight for each cluster
                     #   - Normalize mixture weights
                     # ============= TODO: GMM update using KMeans =============
-                    pass
+                    n_samples = data.shape[0]
+                    n_clusters = hmm.n_mixtures
+                    
+                    kmeans = KMeans(n_clusters=n_clusters, random_state=0)
+                    labels = kmeans.fit_predict(data)
+                    mixtures = []
+                    for k in range(n_clusters):
+                        cluster_data = data[labels == k]
+                        if cluster_data.shape[0] == 0:
+                            continue
+
+                        mean = np.mean(cluster_data, axis=0)
+                        var = np.var(cluster_data, axis=0)
+                        cov = np.diag(var) + 1e-6 * np.eye(data.shape[1])
+                        weight = float(cluster_data.shape[0]) / float(n_samples)
+
+                        mixtures.append({'mean': mean, 'cov': cov, 'weight': weight})
+
+                    if len(mixtures) == 0:
+                        # Fallback to a single Gaussian if clustering fails
+                        mean = np.mean(data, axis=0)
+                        var = np.var(data, axis=0)
+                        cov = np.diag(var) + 1e-6 * np.eye(data.shape[1])
+                        mixtures = [{'mean': mean, 'cov': cov, 'weight': 1.0 / hmm.n_mixtures}]
+
+                    # Pad mixtures if we had fewer clusters than requested
+                    while len(mixtures) < hmm.n_mixtures:
+                        base = mixtures[len(mixtures) % len(mixtures)]
+                        mixtures.append(
+                            {
+                                'mean': np.array(base['mean'], copy=True),
+                                'cov': np.array(base['cov'], copy=True),
+                                'weight': 1.0 / hmm.n_mixtures,
+                            }
+                        )
+
+                    # Normalize weights
+                    w_sum = sum(max(m['weight'], 0.0) for m in mixtures)
+                    if w_sum <= 0:
+                        for m in mixtures:
+                            m['weight'] = 1.0 / len(mixtures)
+                    else:
+                        for m in mixtures:
+                            m['weight'] = float(m['weight']) / w_sum
+
+                    hmm.gaussians[s] = mixtures
 
     def recognize(self, test_features):
         predictions = []
