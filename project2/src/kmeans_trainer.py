@@ -56,7 +56,7 @@ class SegmentalKMeansTrainer:
                     mean = np.mean(data, axis=0)
                     var = np.var(data, axis=0)
                     cov = np.diag(var) + 1e-6 * np.eye(data.shape[1])
-                    hmm.gaussians[s] = [{'mean': mean, 'cov': cov, 'weight': 1.0 / hmm.n_mixtures}]
+                    hmm.gaussians[s] = {'mean': mean, 'cov': cov}
 
                 else:
                     # ============= TODO: GMM update using KMeans =============

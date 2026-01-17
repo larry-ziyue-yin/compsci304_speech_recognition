@@ -28,13 +28,13 @@ class GaussianHMM:
         # Hint:
         #   transition_matrix[i, i]     = 
         #   transition_matrix[i, i + 1] = 
-        # =============TODO: Initialize transition matrix =============
         for i in range(self.n_states - 1):
             # self-loop and next-state transitions
             self.transition_matrix[i, i] = 0.6
             self.transition_matrix[i, i + 1] = 0.4
         # last state absorbing
         self.transition_matrix[self.n_states - 1, self.n_states - 1] = 1.0
+        # =============TODO: Initialize transition matrix =============
         
         self.start_prob = np.zeros(self.n_states)
         # =============TODO: Initialize start probability =============
@@ -42,8 +42,8 @@ class GaussianHMM:
         #
         # Hint:
         #   start_prob[0] = 
-        # =============TODO: Initialize start probability =============
         self.start_prob[0] = 1.0
+        # =============TODO: Initialize start probability =============
         
         self.gaussians = []
         # =============TODO: Initialize emission distributions =============

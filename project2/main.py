@@ -33,9 +33,9 @@ def load_features(filepath):
 
 def main():
     parser = argparse.ArgumentParser(description='HMM-based Isolated Digit Recognition')
-    parser.add_argument('--train_list', type=str, default='data/train.list',
+    parser.add_argument('--train_list', type=str, default='train.list',
                        help='Training list file')
-    parser.add_argument('--test_list', type=str, default='data/test.list',
+    parser.add_argument('--test_list', type=str, default='test.list',
                        help='Testing list file')
     parser.add_argument('--features_dir', type=str, default='data/features',
                        help='Directory to save/load features')
