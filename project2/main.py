@@ -43,6 +43,12 @@ def main():
                        help='Number of HMM states')
     parser.add_argument('--max_iter', type=int, default=20,
                        help='Maximum iterations for training')
+    parser.add_argument('--plot_cm', action='store_true',
+                       help='Plot confusion matrices after evaluation')
+    parser.add_argument('--save_results', action='store_true',
+                       help='Save evaluation results to JSON')
+    parser.add_argument('--results_file', type=str, default='results.json',
+                       help='Results JSON output path')
     args = parser.parse_args()
     
     os.makedirs(args.features_dir, exist_ok=True)
@@ -116,6 +122,8 @@ def main():
     print("Testing single Gaussian HMMs...")
     accuracy_single, cm_single = trainer_single.evaluate(test_data)
     print(f"Recognition Accuracy (Single Gaussian): {accuracy_single:.2f}%")
+    if args.plot_cm:
+        plot_confusion_matrix(cm_single, title="Confusion Matrix (Single Gaussian)")
     
     
     # GMM HMM (4 mixtures)
@@ -135,15 +143,52 @@ def main():
     print("Testing GMM HMMs...")
     accuracy_gmm, cm_gmm = trainer_gmm.evaluate(test_data)
     print(f"Recognition Accuracy (GMM with 4 mixtures): {accuracy_gmm:.2f}%")
+    if args.plot_cm:
+        plot_confusion_matrix(cm_gmm, title="Confusion Matrix (GMM, 4 Mixtures)")
     
     
 
+    def per_digit_accuracy(confusion_matrix):
+        per_digit = {}
+        for d in range(10):
+            total = np.sum(confusion_matrix[d, :])
+            correct = confusion_matrix[d, d]
+            acc = correct / total * 100 if total > 0 else 0
+            per_digit[str(d)] = {
+                "accuracy": acc,
+                "correct": int(correct),
+                "total": int(total),
+            }
+        return per_digit
+
     print("\nPer-digit accuracy (GMM):")
+    per_digit_gmm = per_digit_accuracy(cm_gmm)
     for d in range(10):
-        total = np.sum(cm_gmm[d, :])
-        correct = cm_gmm[d, d]
-        acc = correct / total * 100 if total > 0 else 0
+        acc = per_digit_gmm[str(d)]["accuracy"]
+        correct = per_digit_gmm[str(d)]["correct"]
+        total = per_digit_gmm[str(d)]["total"]
         print(f"  Digit {d}: {acc:.1f}% ({correct}/{total})")
+
+    if args.save_results:
+        results = {
+            "settings": {
+                "n_states": args.n_states,
+                "max_iter": args.max_iter,
+            },
+            "single_gaussian": {
+                "n_mixtures": 1,
+                "accuracy": accuracy_single,
+                "confusion_matrix": cm_single.tolist(),
+                "per_digit": per_digit_accuracy(cm_single),
+            },
+            "gmm": {
+                "n_mixtures": 4,
+                "accuracy": accuracy_gmm,
+                "confusion_matrix": cm_gmm.tolist(),
+                "per_digit": per_digit_gmm,
+            },
+        }
+        save_results(results, filename=args.results_file)
 
 if __name__ == "__main__":
     main()
