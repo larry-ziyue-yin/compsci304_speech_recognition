@@ -2,6 +2,7 @@ import numpy as np
 import os
 import json
 import matplotlib.pyplot as plt
+import pickle
 
 def split_data(features_dict, n_train=5):
     """
@@ -67,3 +68,11 @@ def load_results(filename="results.json"):
     """
     with open(filename, 'r') as f:
         return json.load(f)
+
+def save_hmm_models(models, path):
+    """
+    models: dict, e.g. { '0': GaussianHMM, '1': GaussianHMM, ... }
+    """
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as f:
+        pickle.dump(models, f)

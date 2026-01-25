@@ -3,7 +3,7 @@ import numpy as np
 import argparse
 from src.feature_extraction import FeatureExtractor
 from src.kmeans_trainer import SegmentalKMeansTrainer
-from src.utils import plot_confusion_matrix, save_results
+from src.utils import plot_confusion_matrix, save_results, save_hmm_models
 
 def load_file_lists(train_list_file, test_list_file):
     train_dict = {str(d): [] for d in range(10)}
@@ -145,6 +145,7 @@ def main():
     # train
     print("Training GMM HMMs...")
     models_gmm = trainer_gmm.train(train_data)
+    save_hmm_models(models_gmm, os.path.join("models", "hmm_gmm.pkl"))
     
     # test
     print("Testing GMM HMMs...")

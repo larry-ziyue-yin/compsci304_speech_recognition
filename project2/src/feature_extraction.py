@@ -28,7 +28,7 @@ class FeatureExtractor:
         self.double_delta_dim = n_mfcc
         self.total_dim = 39  # 13 MFCC + 13 delta + 13 double delta
 
-    def extract_features(self, audio_path, remove_silence=False):
+    def extract_features(self, audio_path, remove_silence=True):
         """
         extract audio features: MFCC + delta + double delta
         """

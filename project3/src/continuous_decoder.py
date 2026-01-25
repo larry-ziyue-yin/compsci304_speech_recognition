@@ -1,5 +1,6 @@
 # src/continuous_decoder.py
 
+from collections import deque
 import numpy as np
 
 LOG_ZERO = -1e10

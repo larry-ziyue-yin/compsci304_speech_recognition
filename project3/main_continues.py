@@ -6,10 +6,11 @@ from src.feature_extraction import FeatureExtractor
 import numpy as np
 from src.utils import load_hmm_models
 
-penalties = [] # Determine the optimal insertion penalty empirically
+penalties = [i * 0.1 for i in range(-10, 11)] # Determine the optimal insertion penalty empirically
 
 # Use the trained digit HMMs in project2. You can use "save_hmm_models(models_gmm, "models/hmm_gmm.pkl")" to save the model.
-digit_models = load_hmm_models("models/hmm_gmm.pkl")
+# digit_models = load_hmm_models("models/hmm_gmm.pkl")
+digit_models = load_hmm_models("models/hmm_gmm_zyh.pkl")
 
 grammar = DigitLoopGrammar()
 extractor = FeatureExtractor()
