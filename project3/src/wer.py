@@ -3,6 +3,10 @@
 import numpy as np
 
 def edit_distance(ref, hyp):
+    """
+    Calculate edit distance (Levenshtein distance) between two sequences.
+    ref and hyp should be lists or strings.
+    """
     D = np.zeros((len(ref)+1, len(hyp)+1))
 
     for i in range(len(ref)+1):
@@ -22,4 +26,24 @@ def edit_distance(ref, hyp):
 
 
 def word_error_rate(ref, hyp):
-    return edit_distance(ref, hyp) / len(ref)
+    """
+    Calculate Word Error Rate (WER) between reference and hypothesis.
+    For digit recognition, each digit is treated as a word.
+    
+    Args:
+        ref: reference string (e.g., "123")
+        hyp: hypothesis string (e.g., "124")
+    
+    Returns:
+        WER as a float (edit_distance / num_words_in_ref)
+    """
+    # Convert strings to lists of digits (each digit is a word)
+    ref_list = list(ref) if isinstance(ref, str) else ref
+    hyp_list = list(hyp) if isinstance(hyp, str) else hyp
+    
+    if len(ref_list) == 0:
+        # If reference is empty, WER is 1.0 if hyp is non-empty, 0.0 if hyp is also empty
+        return 1.0 if len(hyp_list) > 0 else 0.0
+    
+    edit_dist = edit_distance(ref_list, hyp_list)
+    return edit_dist / len(ref_list)

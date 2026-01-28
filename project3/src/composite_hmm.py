@@ -55,8 +55,8 @@ class CompositeHMM:
         #   - handle non-emitting state edge with insertion penalty
         for (src, dst, label) in grammar.edges:
             if label is None:
-                # non-emitting grammar edge (e.g., loop-back), apply insertion penalty directly (already in log domain)
-                _set_arc(src, dst, float(insertion_penalty))
+                # non-emitting grammar edge (e.g., loop-back), apply insertion penalty in log domain
+                _set_arc(src, dst, _log(float(insertion_penalty)))
                 continue
 
             # edge has a digit: insert a *copy* of the digit HMM
@@ -85,14 +85,9 @@ class CompositeHMM:
                         _set_arc(offset + i, offset + j, _log(p))
 
             # connect digit HMM exit -> next grammar state
-            # In the project3 handout, absorbing state is merged with grammar state.
-            # Our Proj2 HMM usually has no extra non-emitting absorbing state; we approximate by allowing exit
-            # according to probability of reaching/staying in the last state.
+            # Only allow exiting from the final (absorbing) state.
             last = n_states - 1
-            for i in range(n_states):
-                p_exit = float(tmat[i, last])
-                if p_exit > 0.0:
-                    _set_arc(offset + i, dst, _log(p_exit))
+            _set_arc(offset + last, dst, 0.0)
 
             # register emitting states and their digit labels (for states_to_digits)
             for i in range(n_states):
