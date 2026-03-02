@@ -59,13 +59,24 @@ class Solver(BaseSolver):
     def set_model(self):
         ''' Setup Whisper model for testing '''
         whisper_cfg = self.config['data'].get('whisper', {})
+        local_model_path = whisper_cfg.get('local_model_path', '')
         use_lora = bool(whisper_cfg.get('use_lora', False))
         lora_rank = int(whisper_cfg.get('lora_rank', 2))
         lora_alpha = float(whisper_cfg.get('lora_alpha', lora_rank))
         
         #==================TODO===================
         # Load Whisper model
-        self.model = whisper.load_model(self.model_name, device=self.device).to(self.device)
+        model_ref = self.model_name
+        if local_model_path:
+            model_ref = os.path.expanduser(local_model_path)
+            if not os.path.isabs(model_ref):
+                model_ref = os.path.join(os.getcwd(), model_ref)
+            if not os.path.isfile(model_ref):
+                raise FileNotFoundError(
+                    f"local_model_path not found: {model_ref}"
+                )
+            self.verbose(f"Loading Whisper from local checkpoint: {model_ref}")
+        self.model = whisper.load_model(model_ref, device=self.device).to(self.device)
         if use_lora:
             replaced = inject_lora(self.model, rank=lora_rank, alpha=lora_alpha)
             self.verbose(

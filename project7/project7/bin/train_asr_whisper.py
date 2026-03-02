@@ -1,3 +1,4 @@
+import os
 import torch
 import editdistance as ed
 from src.solver import BaseSolver
@@ -40,6 +41,7 @@ class Solver(BaseSolver):
         ''' Setup ASR model and optimizer '''
         whisper_cfg = self.config['data'].get('whisper', {})
         model_name = whisper_cfg.get('model_name', 'large')
+        local_model_path = whisper_cfg.get('local_model_path', '')
         use_lora = bool(whisper_cfg.get('use_lora', False))
         lora_rank = int(whisper_cfg.get('lora_rank', 2))
         lora_alpha = float(whisper_cfg.get('lora_alpha', lora_rank))
@@ -49,7 +51,17 @@ class Solver(BaseSolver):
         # load Whisper model using whisper.load_model
         # input: self.config['data']['whisper']['model_name']
         # move to gpu
-        self.model = whisper.load_model(model_name, device=self.device).to(self.device)
+        model_ref = model_name
+        if local_model_path:
+            model_ref = os.path.expanduser(local_model_path)
+            if not os.path.isabs(model_ref):
+                model_ref = os.path.join(os.getcwd(), model_ref)
+            if not os.path.isfile(model_ref):
+                raise FileNotFoundError(
+                    f"local_model_path not found: {model_ref}"
+                )
+            self.verbose(f"Loading Whisper from local checkpoint: {model_ref}")
+        self.model = whisper.load_model(model_ref, device=self.device).to(self.device)
         if use_lora:
             replaced = inject_lora(
                 self.model,

@@ -1,6 +1,7 @@
 data:
   whisper:
     model_name: "large"          # align with teammate strategy
+    local_model_path: "ckpt/whisper/large-v3.pt"  # offline checkpoint path
     use_lora: true               # enable LoRA fine-tuning
     lora_rank: 2
     lora_alpha: 2
@@ -8,7 +9,7 @@ data:
     audio_max_length: 480000   
 
   name: "wtimit"
-  batch_size: 16
+  batch_size: 2
   bucketing: true
   train: data/train
   valid: data/dev
