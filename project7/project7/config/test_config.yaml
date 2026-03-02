@@ -4,7 +4,10 @@ src:
   config: 'config/train_config.yaml'
 data:
   whisper:
-    model_name: "base"           # Whisper model size
+    model_name: "large"          # align with teammate strategy
+    use_lora: true               # use same LoRA structure for checkpoint loading
+    lora_rank: 2
+    lora_alpha: 2
     lang: "en"                  # language
     audio_max_length: 480000    
   name: "wtimit"

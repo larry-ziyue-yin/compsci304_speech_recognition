@@ -3,6 +3,7 @@ import editdistance as ed
 from src.solver import BaseSolver
 from src.optim import Optimizer
 from src.data import load_dataset_wtimit
+from src.lora import inject_lora, get_trainable_params, trainable_param_count
 from src.util import human_format, cal_er, feat_to_fig
 import whisper
 
@@ -37,16 +38,32 @@ class Solver(BaseSolver):
 
     def set_model(self):
         ''' Setup ASR model and optimizer '''
+        whisper_cfg = self.config['data'].get('whisper', {})
+        model_name = whisper_cfg.get('model_name', 'large')
+        use_lora = bool(whisper_cfg.get('use_lora', False))
+        lora_rank = int(whisper_cfg.get('lora_rank', 2))
+        lora_alpha = float(whisper_cfg.get('lora_alpha', lora_rank))
+
         # Model
         #===================TODO===============
         # load Whisper model using whisper.load_model
         # input: self.config['data']['whisper']['model_name']
         # move to gpu
-        model_name = self.config['data']['whisper']['model_name']
         self.model = whisper.load_model(model_name, device=self.device).to(self.device)
+        if use_lora:
+            replaced = inject_lora(
+                self.model,
+                rank=lora_rank,
+                alpha=lora_alpha,
+            )
+            tr_n, all_n = trainable_param_count(self.model)
+            self.verbose(
+                f"LoRA enabled | rank={lora_rank} alpha={lora_alpha} | replaced={replaced} "
+                f"| trainable={tr_n}/{all_n} ({100.0*tr_n/all_n:.4f}%)"
+            )
         
         #===================TODO===============
-        model_paras = [{'params': self.model.parameters()}]
+        model_paras = [{'params': get_trainable_params(self.model)}]
 
         # Losses
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=-100)

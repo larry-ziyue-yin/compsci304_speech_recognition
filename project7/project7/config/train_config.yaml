@@ -1,6 +1,9 @@
 data:
   whisper:
-    model_name: "base"           # Whisper model size
+    model_name: "large"          # align with teammate strategy
+    use_lora: true               # enable LoRA fine-tuning
+    lora_rank: 2
+    lora_alpha: 2
     lang: "en"                  # language
     audio_max_length: 480000   
 

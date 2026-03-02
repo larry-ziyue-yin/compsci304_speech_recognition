@@ -7,6 +7,7 @@ from whisper.tokenizer import get_tokenizer
 
 from src.solver import BaseSolver
 from src.data import load_dataset_wtimit
+from src.lora import inject_lora
 
 class Solver(BaseSolver):
     ''' Solver for Whisper testing'''
@@ -57,10 +58,19 @@ class Solver(BaseSolver):
 
     def set_model(self):
         ''' Setup Whisper model for testing '''
+        whisper_cfg = self.config['data'].get('whisper', {})
+        use_lora = bool(whisper_cfg.get('use_lora', False))
+        lora_rank = int(whisper_cfg.get('lora_rank', 2))
+        lora_alpha = float(whisper_cfg.get('lora_alpha', lora_rank))
         
         #==================TODO===================
         # Load Whisper model
         self.model = whisper.load_model(self.model_name, device=self.device).to(self.device)
+        if use_lora:
+            replaced = inject_lora(self.model, rank=lora_rank, alpha=lora_alpha)
+            self.verbose(
+                f"LoRA enabled for decoding | rank={lora_rank} alpha={lora_alpha} | replaced={replaced}"
+            )
 
         #==================TODO===================
         self.verbose(f"Loaded Whisper model: {self.model_name}")
