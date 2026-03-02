@@ -1,7 +1,7 @@
 # Most of the parameters will be imported from the training config
 src:
   ckpt: 'ckpt/train_config_sd0/best_whisper.pth'
-  config: 'config/test_config.yaml'
+  config: 'config/train_config.yaml'
 data:
   whisper:
     model_name: "base"           # Whisper model size
@@ -11,7 +11,8 @@ data:
   batch_size: 16
   bucketing: true
   train: data/train
-  valid: data/valid
+  valid: data/dev
+  test: data/test
 decode:
   beam_size: 20
   min_len_ratio: 0.01

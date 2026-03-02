@@ -8,7 +8,7 @@ data:
   batch_size: 16
   bucketing: true
   train: data/train
-  valid: data/valid
+  valid: data/dev
     
 
 hparas:

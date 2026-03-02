@@ -1,4 +1,5 @@
 import torch
+import editdistance as ed
 from src.solver import BaseSolver
 from src.optim import Optimizer
 from src.data import load_dataset_wtimit
@@ -18,6 +19,9 @@ class Solver(BaseSolver):
         #===================TODO===============
         # 1. Get input_ids, labels, dec_input_ids
         # 2. Move input_ids, labels, dec_input_ids to self.device
+        input_ids = data['input_ids'].to(self.device)
+        labels = data['labels'].to(self.device)
+        dec_input_ids = data['dec_input_ids'].to(self.device)
 
         #===================TODO===============
         return input_ids, labels, dec_input_ids
@@ -27,7 +31,7 @@ class Solver(BaseSolver):
         ''' Load data for training/validation, store tokenizer and input/output shape'''
         self.tr_set, self.dv_set, self.feat_dim, self.tokenizer, msg = \
             load_dataset_wtimit(self.paras.njobs, self.paras.gpu, self.paras.pin_memory,
-                         self.config['data'])
+                         self.config['data'], for_test=False)
         self.special_token_set = set(self.tokenizer.special_tokens.values())
         self.verbose(msg)
 
@@ -38,6 +42,8 @@ class Solver(BaseSolver):
         # load Whisper model using whisper.load_model
         # input: self.config['data']['whisper']['model_name']
         # move to gpu
+        model_name = self.config['data']['whisper']['model_name']
+        self.model = whisper.load_model(model_name, device=self.device).to(self.device)
         
         #===================TODO===============
         model_paras = [{'params': self.model.parameters()}]
@@ -69,6 +75,9 @@ class Solver(BaseSolver):
         # Notes:
         #   - Padding tokens in labels have already been set to -100
         #   - loss_fn has already been defined in set_model
+        audio_features, _ = self.model.encoder(input_ids)
+        out = self.model.decoder(dec_input_ids, audio_features)
+        loss = self.loss_fn(out.reshape(-1, out.size(-1)), labels.reshape(-1))
         
 
         # ==============================TODO ==============================
@@ -107,8 +116,16 @@ class Solver(BaseSolver):
         # Decode predictions and references
         o_list, l_list = [], []
         for o, l in zip(tokens, labels):
-            o_list.append(self.tokenizer.decode([t for t in o if t.item() not in self.special_token_set]))
-            l_list.append(self.tokenizer.decode([t for t in l if t.item() not in self.special_token_set]))
+            o_list.append(
+                self.tokenizer.decode(
+                    [int(t.item()) for t in o if t.item() not in self.special_token_set]
+                )
+            )
+            l_list.append(
+                self.tokenizer.decode(
+                    [int(t.item()) for t in l if t.item() not in self.special_token_set]
+                )
+            )
         
         # Calculate WER and CER (you need to implement wer_cer function or import)
         # For now, using placeholder
@@ -126,10 +143,24 @@ class Solver(BaseSolver):
 
     def calculate_wer_cer(self, hypo, ref):
         ''' Calculate WER and CER '''
-        # Implement your WER/CER calculation here
-        # Placeholder - you should import or implement proper calculation
-        wer = sum(1 for h, r in zip(hypo, ref) if h != r) / max(len(hypo), 1)
-        cer = wer  # Simplified - implement proper CER calculation
+        total_word_err = 0
+        total_word_count = 0
+        total_char_err = 0
+        total_char_count = 0
+
+        for h, r in zip(hypo, ref):
+            h_words = h.strip().split()
+            r_words = r.strip().split()
+            total_word_err += ed.eval(h_words, r_words)
+            total_word_count += max(len(r_words), 1)
+
+            h_chars = list(h.replace(" ", ""))
+            r_chars = list(r.replace(" ", ""))
+            total_char_err += ed.eval(h_chars, r_chars)
+            total_char_count += max(len(r_chars), 1)
+
+        wer = total_word_err / max(total_word_count, 1)
+        cer = total_char_err / max(total_char_count, 1)
         return wer, cer
 
     def exec(self):

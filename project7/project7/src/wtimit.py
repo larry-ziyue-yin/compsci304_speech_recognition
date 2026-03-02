@@ -25,13 +25,26 @@ class Dataset(torch.utils.data.Dataset):
         #=========================TODO===================
         #read audio_path, text from self.data_list
         #extract audio_feature using wavfile.read function
+        audio_path, text = self.data_list[idx]
+        audio_path = audio_path.strip()
+        text = text.strip()
+        _, wav_data = wavfile.read(audio_path)
 
         #=======================TODO=====================
-        audio = wav_data.flatten().astype(np.float32) / 32768.0
+        if wav_data.ndim > 1:
+            wav_data = wav_data.mean(axis=1)
+
+        if np.issubdtype(wav_data.dtype, np.integer):
+            scale = float(np.iinfo(wav_data.dtype).max)
+            audio = wav_data.astype(np.float32) / scale
+        else:
+            audio = wav_data.astype(np.float32)
+
+        audio = audio.flatten()
         key = audio_path.split('/')[-1][:-4]
         # Padding or truncation
         if self.max_length is not None:
-            audio = whisper.pad_or_trim(audio.flatten(), length=self.max_length)
+            audio = whisper.pad_or_trim(audio, length=self.max_length)
         
         # extract Mel spectrogram
         mel = whisper.log_mel_spectrogram(audio, n_mels=self.n_mels)

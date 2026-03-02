@@ -7,6 +7,7 @@
 export CUDA_VISIBLE_DEVICES="0"
 stage=0 # start from 0 if you need to start from data preparation
 stop_stage=2
+wtimit_root=/dkucc/group/courses/compsci304-2526-s3/cl688/wTIMIT
 
 # data
 manifest_dir=data
@@ -24,14 +25,11 @@ set -o pipefail
 
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
   echo "stage 0: Data preparation"
-  echo "Students should write code to generate train/dev/test manifests:"
-  # Since WTIMIT utterances are duplicated in train and test sets, they cannot be used directly.
-  # Please split the 450 sentences into train/dev/test sets with a ratio of 400/25/25.
-  mkdir -p ${manifest_dir}
-  ############################################
-  #  Add code here to generate files for loading data in 'src.wtimit.py'
-
-  ############################################
+  python tools/prepare_wtimit_manifests.py \
+    --wtimit-root "${wtimit_root}" \
+    --train-manifest "${train_manifest}" \
+    --dev-manifest "${dev_manifest}" \
+    --test-manifest "${test_manifest}"
 fi
 
 
