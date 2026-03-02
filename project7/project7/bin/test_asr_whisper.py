@@ -77,6 +77,23 @@ class Solver(BaseSolver):
                 )
             self.verbose(f"Loading Whisper from local checkpoint: {model_ref}")
         self.model = whisper.load_model(model_ref, device=self.device).to(self.device)
+
+        # Re-sync the tokenizer to the actual loaded model's multilingual capability.
+        # This is necessary when local_model_path points to a model whose multilingual
+        # flag differs from what model_name implies (e.g. loading an English-only
+        # checkpoint while model_name is "large").
+        actual_multilingual = self.model.is_multilingual
+        if actual_multilingual != self.multilingual:
+            self.verbose(
+                f"Tokenizer/model multilingual mismatch detected "
+                f"(tokenizer multilingual={self.multilingual}, "
+                f"loaded model multilingual={actual_multilingual}). "
+                f"Re-initializing tokenizer to match the loaded model."
+            )
+            self.multilingual = actual_multilingual
+            self.tokenizer = get_tokenizer(multilingual=self.multilingual, task='transcribe')
+            self.special_token_set = set(self.tokenizer.special_tokens.values())
+
         if use_lora:
             replaced = inject_lora(self.model, rank=lora_rank, alpha=lora_alpha)
             self.verbose(
