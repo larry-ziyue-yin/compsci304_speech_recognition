@@ -1,0 +1,27 @@
+data:
+  corpus:
+    name: 'aishell'
+    path: 'data'
+    train_split: ['train']
+    dev_split: ['dev']
+    bucketing: True
+    batch_size: 32
+  text:
+    mode: 'character'
+    vocab_file: 'data/dict/lang_char.txt'
+
+hparas:
+  valid_step: 10000
+  max_step: 100000000
+  optimizer: 'Adam'
+  lr: 0.0001
+  eps: 0.00000001
+  lr_scheduler: 'fixed'
+
+model:
+  emb_tying: False
+  emb_dim: 1024
+  module: 'LSTM'
+  dim: 1024
+  n_layers: 2
+  dropout: 0.5

@@ -1,0 +1,19 @@
+# Project 6 decoding config: CTC beam=20
+src:
+  ckpt: 'ckpt/asr_ctc_sd0/best_ctc.pth'
+  config: 'config/libri/asr_ctc.yaml'
+data:
+  corpus:
+    name: 'Librispeech'
+    batch_size: 16
+    dev_split: ['dev-clean']
+    test_split: ['test-clean']
+decode:
+  beam_size: 20
+  min_len_ratio: 0.01
+  max_len_ratio: 0.07
+  vocab_candidate: 30
+  lm_path: 'ckpt/lm_example_sd0/best_ppx.pth'
+  lm_config: 'config/libri/lm_example.yaml'
+  lm_weight: 0.0
+  ctc_weight: 1.0

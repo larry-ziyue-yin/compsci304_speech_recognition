@@ -1,0 +1,58 @@
+data:
+  corpus:
+    name: 'Librispeech'
+    path: 'data/LibriSpeech'
+    train_split: ['train-clean-100']
+    dev_split: ['dev-clean']
+    bucketing: True
+    batch_size: 16
+  audio:
+    feat_type: 'fbank'
+    feat_dim: 40
+    frame_length: 25
+    frame_shift: 10
+    dither: 0
+    apply_cmvn: True
+    delta_order: 2
+    delta_window_size: 2
+  text:
+    mode: 'subword'
+    vocab_file: 'data/lang_char/train_100_bpe5000.model'
+
+hparas:
+  valid_step: 5000
+  max_step: 1000001
+  tf_start: 1.0
+  tf_end: 1.0
+  tf_step: 500000
+  optimizer: 'Adadelta'
+  lr: 1.0
+  eps: 0.00000001
+  lr_scheduler: 'fixed'
+  curriculum: 0
+
+model:
+  ctc_weight: 1.0
+  encoder:
+    prenet: 'cnn'
+    module: 'LSTM'
+    bidirection: True
+    dim: [512, 512, 512, 512, 512]
+    dropout: [0, 0, 0, 0, 0]
+    layer_norm: [False, False, False, False, False]
+    proj: [True, True, True, True, True]
+    sample_rate: [1, 1, 1, 1, 1]
+    sample_style: 'drop'
+  attention:
+    mode: 'loc'
+    dim: 300
+    num_head: 1
+    v_proj: False
+    temperature: 0.5
+    loc_kernel_size: 100
+    loc_kernel_num: 10
+  decoder:
+    module: 'LSTM'
+    dim: 512
+    layer: 1
+    dropout: 0

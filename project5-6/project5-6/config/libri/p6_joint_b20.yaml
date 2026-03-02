@@ -1,0 +1,19 @@
+# Project 6 decoding config: Joint CTC-Attention beam=20
+# NOTE: Requires a hybrid ASR checkpoint trained with model.ctc_weight > 0.
+src:
+  ckpt: 'ckpt/asr_hybrid_sd0_gyc/best_att.pth'
+  config: 'config/libri/asr_hybrid.yaml'
+data:
+  corpus:
+    name: 'Librispeech'
+    batch_size: 256
+    dev_split: ['dev-clean']
+    test_split: ['test-clean']
+decode:
+  beam_size: 20
+  min_len_ratio: 0.01
+  max_len_ratio: 0.07
+  lm_path: 'ckpt/lm_example_sd0/best_ppx.pth'
+  lm_config: 'config/libri/lm_example.yaml'
+  lm_weight: 0.0
+  ctc_weight: 0.3

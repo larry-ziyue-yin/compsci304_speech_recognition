@@ -1,0 +1,10 @@
+tqdm
+pandas
+future
+joblib
+pyyaml
+sentencepiece
+tensorboard
+torch>=1.2.0
+torchaudio
+matplotlib
