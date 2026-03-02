@@ -1,0 +1,20 @@
+data:
+  whisper:
+    model_name: "base"           # Whisper model size
+    lang: "en"                  # language
+    audio_max_length: 480000   
+
+  name: "wtimit"
+  batch_size: 16
+  bucketing: true
+  train: data/train
+  valid: data/valid
+    
+
+hparas:
+  valid_step: 1000
+  max_step: 50000
+  optimizer: 'Adadelta'
+  lr: 0.0005
+  lr_scheduler: 'fixed'  
+  eps: 0.00000001  

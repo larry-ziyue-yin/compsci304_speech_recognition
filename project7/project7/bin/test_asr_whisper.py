@@ -1,0 +1,283 @@
+import copy
+import torch
+from tqdm import tqdm
+from functools import partial
+from joblib import Parallel, delayed
+import whisper
+from whisper.tokenizer import get_tokenizer
+
+from src.solver import BaseSolver
+from src.data import load_dataset_wtimit
+
+class Solver(BaseSolver):
+    ''' Solver for Whisper testing'''
+
+    def __init__(self, config, paras, mode):
+        super().__init__(config, paras, mode)
+
+
+        # Whisper specific settings
+        self.model_name = config['data']['whisper']['model_name']
+        self.lang = config['data']['whisper']['lang']
+        self.multilingual = True if 'large' in self.model_name or 'en' not in self.model_name else False
+        self.tokenizer = get_tokenizer(multilingual=self.multilingual, task='transcribe')
+        self.special_token_set = set(self.tokenizer.special_tokens.values())
+
+        # Output file
+        self.output_file = str(self.ckpdir) + '_{}_{}.csv'
+
+        # Override batch size for beam decoding
+        self.greedy = self.config['decode']['beam_size'] == 1
+        if not self.greedy:
+            self.config['data']['batch_size'] = 1
+        
+        self.step = 0
+    
+    def fetch_data(self, data):
+        ''' Move data to device for Whisper model '''
+        # Assuming data format: (name, mel_spec, labels, dec_input_ids)
+        # or adapt to your dataset format
+        #==================TODO===================
+        name, input_ids, labels, dec_input_ids = data['name'], data['input_ids'], data['labels'], data['dec_input_ids']
+        # move input_ids, labels, dec_input_ids to device
+
+        #==================TODO===================
+        return name, input_ids, labels, dec_input_ids 
+
+
+    def load_data(self):
+        ''' Load data for testing '''
+        self.dv_set, self.tt_set, self.feat_dim, self.tokenizer, msg = \
+            load_dataset_wtimit(self.paras.njobs, self.paras.gpu, self.paras.pin_memory,
+                         self.config['data'])
+        self.verbose(msg)
+
+    def set_model(self):
+        ''' Setup Whisper model for testing '''
+        
+        #==================TODO===================
+        # Load Whisper model
+
+        #==================TODO===================
+        self.verbose(f"Loaded Whisper model: {self.model_name}")
+        
+        # Load checkpoint if specified
+        if self.paras.load:
+            self.load_ckpt()
+            self.verbose(f"Loaded checkpoint from {self.paras.load}")
+        
+        # Set to evaluation mode
+        self.model.eval()
+        
+        # Greedy decoding (Whisper uses greedy by default)
+        # You can implement beam search if needed
+        self.greedy = True  # Whisper default is greedy
+        
+        # For beam decoding (optional - implement if needed)
+        if not self.greedy and 'beam_size' in self.config['decode']:
+            self.verbose(f"Beam search with size {self.config['decode']['beam_size']}")
+            # You would need to implement Whisper-specific beam search here
+        
+        self.verbose("Model setup complete")
+
+    def whisper_greedy_decode(self, feat):
+        ''' Greedy decoding for Whisper '''
+        with torch.no_grad():
+            # Forward through encoder
+            audio_features, _ = self.model.encoder(feat)
+            
+            # Initialize decoder input with special tokens
+            # For multilingual: [sot, lang_token, transcribe_token, no_timestamps]
+            initial_tokens = [
+                self.tokenizer.sot,
+                self.tokenizer.special_tokens.get(f"<|{self.lang}|>", self.tokenizer.sot),
+                self.tokenizer.transcribe,
+                self.tokenizer.no_timestamps
+            ]
+            
+            # Prepare decoder input
+            dec_input = torch.tensor([initial_tokens], device=self.device)
+            
+            # Greedy decoding loop
+            max_len = 448  # Whisper max tokens
+            for i in range(max_len):
+                # Forward decoder
+                logits = self.model.decoder(dec_input, audio_features)
+                
+                # Get next token
+                next_token = torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+                
+                # Append to decoder input
+                dec_input = torch.cat([dec_input, next_token], dim=-1)
+                
+                # Check for EOT
+                if next_token.item() == self.tokenizer.eot:
+                    break
+            
+            return dec_input[0].cpu().tolist()
+
+    def whisper_transcribe(self, feat, language=None):
+        ''' Use Whisper's built-in decode function '''
+        with torch.no_grad():
+            # Get encoder features
+            audio_features, _ = self.model.encoder(feat)
+            
+            # Create options for decoding
+            options = whisper.DecodingOptions(
+                language=language or self.lang,
+                without_timestamps=True,
+                fp16=(self.device.type == 'cuda'),
+                beam_size=None if self.greedy else self.config['decode'].get('beam_size', 5),
+                task='transcribe'
+            )
+            
+            # Decode 
+            return whisper.decode(self.model, audio_features, options)
+
+    def greedy_decode(self, dv_set, use_whisper_api=True):
+        ''' Greedy Decoding for Whisper '''
+        results = []
+        
+        for i, data in enumerate(dv_set):
+            self.progress(f'Decoding step - {i+1}/{len(dv_set)}')
+            
+            # Fetch data
+            name, feat, labels, dec_input_ids = self.fetch_data(data)
+            
+            if use_whisper_api:
+                # Batch processing: 
+                decode_results = self.whisper_transcribe(feat)
+                
+                # decode_results 
+                for j, result in enumerate(decode_results):
+                    # 获取识别结果
+                    hyp_text = result.text.strip()
+                    
+                    # Get ground truth if available
+                    if labels is not None:
+                        # Decode labels to text (remove special tokens)
+                        label_seq = labels[j]
+                        # Filter out special tokens and padding
+                        valid_tokens = [t for t in label_seq if t.item() not in self.special_token_set and t.item() != -100]
+                        true_text = self.tokenizer.decode(valid_tokens)
+                    else:
+                        true_text = ""
+                    
+                    idx = name[j] if name is not None else f"{i}_{j}"
+                    results.append((str(idx), hyp_text, true_text))
+                    
+                    # print examples
+                    # if i == 0 and j < 2:  
+                    #     self.verbose(f"Batch {i}, Sample {j}:")
+                    #     self.verbose(f"  HYP: {hyp_text}")
+                    #     self.verbose(f"  REF: {true_text}")
+            else:
+                # Custom greedy decoding
+                for j in range(feat.size(0)):
+                    single_feat = feat[j:j+1]
+                    hyp_tokens = self.whisper_greedy_decode(single_feat)
+                    
+                    # Remove special tokens from hypothesis
+                    hyp_tokens_clean = [t for t in hyp_tokens if t not in self.special_token_set]
+                    hyp_text = self.tokenizer.decode(hyp_tokens_clean).strip()
+                    
+                    # Get ground truth if available
+                    if labels is not None:
+                        label_seq = labels[j]
+                        valid_tokens = [t for t in label_seq if t.item() not in self.special_token_set and t.item() != -100]
+                        true_text = self.tokenizer.decode(valid_tokens)
+                    else:
+                        true_text = ""
+                    
+                    idx = name[j] if name is not None else f"{i}_{j}"
+                    results.append((str(idx), hyp_text, true_text))
+        
+        return results
+
+    def exec(self):
+        ''' Testing Whisper ASR system '''
+        self.verbose("Starting Whisper testing...")
+        
+        # Test on both dev and test sets
+        for s, ds in zip(['dev', 'test'], [self.dv_set, self.tt_set]):
+            if ds is None:
+                continue
+                
+            # Setup output file
+            self.cur_output_path = self.output_file.format(s, 'output')
+            with open(self.cur_output_path, 'w', encoding='UTF-8') as f:
+                f.write('idx\thyp\ttruth\n')
+            
+            # Greedy decode (Whisper's default)
+            self.verbose(f'Performing greedy decoding on {s} set, num of batch = {len(ds)}.')
+            
+            # Use Whisper's built-in API for better results
+            use_whisper_api = False
+            results = self.greedy_decode(ds, use_whisper_api=use_whisper_api)
+            
+            self.verbose(f'Results will be stored at {self.cur_output_path}')
+            
+            # Write results
+            self.write_hyp(results, self.cur_output_path)
+            
+            # Calculate WER/CER if ground truth is available
+            if any(true_text for _, _, true_text in results):
+                self.calculate_metrics(results, s)
+        
+        self.verbose('All testing done!')
+
+    def write_hyp(self, results, output_path):
+        ''' Write decoding results to file '''
+        for name, hyp, truth in tqdm(results, desc="Writing results"):
+            # Clean up text
+            hyp_clean = hyp.strip()
+            truth_clean = truth.strip()
+            
+            with open(output_path, 'a', encoding='UTF-8') as f:
+                f.write(f'{name}\t{hyp_clean}\t{truth_clean}\n')
+            
+            # Print some examples
+            if len(results) <= 10 or results.index((name, hyp, truth)) < 3:
+                self.verbose(f"Example {name}:")
+                self.verbose(f"  HYP: {hyp_clean}")
+                self.verbose(f"  REF: {truth_clean}")
+                self.verbose("-" * 50)
+
+    def calculate_metrics(self, results, dataset_name):
+        ''' Calculate WER and CER metrics '''
+        try:
+            # Import WER/CER calculation
+            # You might need to adjust this based on your available modules
+            from src.util import cal_er
+            from jiwer import wer, cer
+            
+            # Collect hypotheses and references
+            hypotheses = []
+            references = []
+            
+            for _, hyp, ref in results:
+                if ref:  # Only if reference is not empty
+                    hypotheses.append(hyp)
+                    references.append(ref)
+            
+            if not references:
+                self.verbose(f"No ground truth available for {dataset_name} set")
+                return
+            
+            # Calculate WER and CER
+            wer_score = wer(references, hypotheses)
+            cer_score = cer(references, hypotheses)
+            
+            self.verbose(f"{dataset_name} set metrics:")
+            self.verbose(f"  WER: {wer_score:.4f} ({wer_score*100:.2f}%)")
+            self.verbose(f"  CER: {cer_score:.4f} ({cer_score*100:.2f}%)")
+            
+            # Log to tensorboard if available
+            if hasattr(self, 'write_log'):
+                self.write_log('wer', {f'{dataset_name}': wer_score})
+                self.write_log('cer', {f'{dataset_name}': cer_score})
+                
+        except ImportError as e:
+            self.verbose(f"Cannot calculate metrics: {e}")
+        except Exception as e:
+            self.verbose(f"Error calculating metrics: {e}")
